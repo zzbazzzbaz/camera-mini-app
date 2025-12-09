@@ -45,9 +45,20 @@ import { onPullDownRefresh } from "@dcloudio/uni-app";
 import DeviceCard from "@/components/DeviceCard.vue";
 import type { DeviceSummary } from "@/types";
 import { fetchDeviceList } from "@/api/device";
+import { useAuth } from "@/utils/auth";
 
 const loading = ref(true);
 const devices = ref<DeviceSummary[]>([]);
+const { getToken } = useAuth();
+
+const ensureAuthed = () => {
+  const token = getToken();
+  if (!token) {
+    uni.reLaunch({ url: "/pages/login/index" });
+    return false;
+  }
+  return true;
+};
 
 const fetchDevices = async () => {
   loading.value = true;
@@ -69,16 +80,25 @@ const gotoBind = () => {
 };
 
 const handleCardTap = (device: DeviceSummary) => {
+  if (!device.device_id) {
+    uni.showToast({ title: "设备信息缺失，请刷新列表后重试", icon: "none" });
+    return;
+  }
   uni.navigateTo({
     url: `/pages/photo/list?device_id=${device.device_id}&name=${encodeURIComponent(device.device_name)}`,
   });
 };
 
 onMounted(() => {
+  if (!ensureAuthed()) return;
   fetchDevices();
 });
 
 onPullDownRefresh(() => {
+  if (!ensureAuthed()) {
+    uni.stopPullDownRefresh();
+    return;
+  }
   fetchDevices();
 });
 </script>

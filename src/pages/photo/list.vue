@@ -99,6 +99,7 @@ const hasMore = ref(true);
 const filter = ref<"active" | "deleted">("active");
 const multiSelect = ref(false);
 const selectedIds = ref<string[]>([]);
+const hasWarnedNoDevice = ref(false);
 
 const filteredPhotos = computed(() =>
   photos.value.filter((item) =>
@@ -116,7 +117,21 @@ const chipClass = (key: "active" | "deleted") =>
 const page = ref(1);
 const pageSize = ref(20);
 
+const ensureDevice = () => {
+  if (deviceId.value && deviceId.value !== "undefined" && deviceId.value !== "null") return true;
+  if (!hasWarnedNoDevice.value) {
+    hasWarnedNoDevice.value = true;
+    uni.showToast({ title: "缺少设备信息，请重新进入", icon: "none" });
+    setTimeout(() => {
+      uni.reLaunch({ url: "/pages/device/list" });
+    }, 500);
+  }
+  return false;
+};
+
 const fetchPhotos = async (reset = true) => {
+  if (!ensureDevice()) return;
+
   if (reset) {
     loading.value = true;
     hasMore.value = true;
@@ -196,6 +211,7 @@ const handleTileTap = (photo: PhotoItem) => {
 };
 
 const handleDelete = () => {
+  if (!ensureDevice()) return;
   if (!selectedIds.value.length) return;
   uni.showModal({
     title: "确认删除",
@@ -225,6 +241,7 @@ const handleDelete = () => {
 };
 
 const handleDownload = () => {
+  if (!ensureDevice()) return;
   if (!selectedIds.value.length) return;
   downloadPhotos({
     device_id: deviceId.value,
@@ -258,8 +275,10 @@ const loadMore = async () => {
 };
 
 onLoad((options) => {
-  deviceId.value = (options?.device_id as string) || "";
+  const paramId = (options?.device_id as string) || "";
+  deviceId.value = paramId && paramId !== "undefined" && paramId !== "null" ? paramId : "";
   deviceName.value = decodeURIComponent((options?.name as string) || "照片列表");
+  ensureDevice();
 });
 
 onMounted(() => {

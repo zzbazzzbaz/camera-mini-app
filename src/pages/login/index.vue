@@ -61,18 +61,6 @@ const handleLogin = async () => {
   loading.value = true;
   uni.showLoading({ title: "登录中...", mask: true });
   try {
-    const loginRes = await new Promise<UniApp.LoginRes>((resolve, reject) => {
-      uni.login({
-        provider: "weixin",
-        success: resolve,
-        fail: reject,
-      });
-    });
-
-    if (!loginRes.code) {
-      throw new Error("未获取到登录 code");
-    }
-
     let userProfile: UniApp.GetUserProfileRes["userInfo"] | null = null;
     try {
       userProfile = await new Promise<UniApp.GetUserProfileRes["userInfo"]>((resolve, reject) => {
@@ -84,6 +72,18 @@ const handleLogin = async () => {
       });
     } catch (err) {
       console.warn("getUserProfile failed, continue login without profile:", err);
+    }
+
+    const loginRes = await new Promise<UniApp.LoginRes>((resolve, reject) => {
+      uni.login({
+        provider: "weixin",
+        success: resolve,
+        fail: reject,
+      });
+    });
+
+    if (!loginRes.code) {
+      throw new Error("未获取到登录 code");
     }
 
     const res = await login({
