@@ -44,39 +44,20 @@ import { onMounted, ref } from "vue";
 import { onPullDownRefresh } from "@dcloudio/uni-app";
 import DeviceCard from "@/components/DeviceCard.vue";
 import type { DeviceSummary } from "@/types";
+import { fetchDeviceList } from "@/api/device";
 
 const loading = ref(true);
 const devices = ref<DeviceSummary[]>([]);
 
-const mockDevices: DeviceSummary[] = [
-  {
-    binding_id: "bind-1",
-    device_id: "dev-1",
-    serial_number: "CAM-20250108-A3F9E2B1",
-    device_name: "客厅相机",
-    status: 1,
-    photo_count: 128,
-    first_upload_time: "2025-01-01T10:00:00",
-    last_upload_time: "2025-01-08T10:00:00",
-  },
-  {
-    binding_id: "bind-2",
-    device_id: "dev-2",
-    serial_number: "CAM-20250102-B7C1D3E4",
-    device_name: "卧室相机",
-    status: 0,
-    photo_count: 36,
-    first_upload_time: "2025-01-02T09:10:00",
-    last_upload_time: "2025-01-06T08:42:00",
-  },
-];
-
 const fetchDevices = async () => {
   loading.value = true;
   try {
-    // TODO: 调用 /api/device/list 获取真实数据
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    devices.value = mockDevices;
+    const res = await fetchDeviceList();
+    if (res.code === 200 && res.data?.devices) {
+      devices.value = res.data.devices;
+    } else {
+      uni.showToast({ title: res.message || "加载失败", icon: "none" });
+    }
   } finally {
     loading.value = false;
     uni.stopPullDownRefresh();

@@ -88,6 +88,7 @@ import { computed, onMounted, ref } from "vue";
 import { onLoad, onReachBottom, onPullDownRefresh } from "@dcloudio/uni-app";
 import PhotoTile from "@/components/PhotoTile.vue";
 import type { PhotoItem } from "@/types";
+import { fetchPhotoList, deletePhotos, downloadPhotos } from "@/api/photo";
 
 const deviceId = ref("");
 const deviceName = ref("");
@@ -112,58 +113,36 @@ const chipClass = (key: "active" | "deleted") =>
       : "bg-white text-slate-600 border-slate-200"
   }`;
 
-const mockPhotos: PhotoItem[] = [
-  {
-    photo_id: "p1",
-    device_id: "dev-1",
-    thumbnail_url: "/static/logo.png",
-    original_url: "/static/logo.png",
-    file_size: 1024 * 1024 * 2,
-    width: 4000,
-    height: 3000,
-    format: "jpg",
-    upload_time: "2025-01-08T10:00:00",
-    is_deleted: 0,
-  },
-  {
-    photo_id: "p2",
-    device_id: "dev-1",
-    thumbnail_url: "/static/logo.png",
-    original_url: "/static/logo.png",
-    file_size: 1024 * 1024 * 1.2,
-    width: 3000,
-    height: 2000,
-    format: "jpg",
-    upload_time: "2025-01-07T15:23:00",
-    is_deleted: 0,
-  },
-  {
-    photo_id: "p3",
-    device_id: "dev-1",
-    thumbnail_url: "/static/logo.png",
-    original_url: "/static/logo.png",
-    file_size: 1024 * 1024 * 0.8,
-    width: 2000,
-    height: 1500,
-    format: "png",
-    upload_time: "2025-01-07T12:10:00",
-    is_deleted: 1,
-  },
-];
+const page = ref(1);
+const pageSize = ref(20);
 
 const fetchPhotos = async (reset = true) => {
   if (reset) {
     loading.value = true;
     hasMore.value = true;
+    page.value = 1;
   } else {
     loadingMore.value = true;
   }
 
   try {
-    // TODO: 调用 /api/photo/list 接口获取真实数据
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    photos.value = reset ? mockPhotos : [...photos.value, ...mockPhotos];
-    hasMore.value = false;
+    const res = await fetchPhotoList({
+      device_id: deviceId.value,
+      page: page.value,
+      page_size: pageSize.value,
+      include_deleted: filter.value === "deleted",
+    });
+    if (res.code !== 200 || !res.data) {
+      throw new Error(res.message || "加载失败");
+    }
+    const list = res.data.items || [];
+    photos.value = reset ? list : [...photos.value, ...list];
+    hasMore.value = !!res.data.has_more;
+    if (res.data.has_more) {
+      page.value += 1;
+    }
+  } catch (error) {
+    uni.showToast({ title: (error as any)?.message || "加载失败", icon: "none" });
   } finally {
     loading.value = false;
     loadingMore.value = false;
@@ -174,6 +153,7 @@ const fetchPhotos = async (reset = true) => {
 const setFilter = (key: "active" | "deleted") => {
   filter.value = key;
   selectedIds.value = [];
+  fetchPhotos(true);
 };
 
 const toggleSelectMode = () => {
@@ -222,14 +202,23 @@ const handleDelete = () => {
     content: `将选中 ${selectedIds.value.length} 张移至回收站，30 天后自动清除`,
     success: (res) => {
       if (res.confirm) {
-        // TODO: 调用 /api/photo/delete
-        photos.value = photos.value.map((item) =>
-          selectedIds.value.includes(item.photo_id)
-            ? { ...item, is_deleted: 1 }
-            : item
-        );
-        selectedIds.value = [];
-        uni.showToast({ title: "已移动到回收站", icon: "none" });
+        deletePhotos({
+          device_id: deviceId.value,
+          photo_ids: selectedIds.value,
+        })
+          .then((resp) => {
+            if (resp.code !== 200) throw new Error(resp.message || "删除失败");
+            photos.value = photos.value.map((item) =>
+              selectedIds.value.includes(item.photo_id)
+                ? { ...item, is_deleted: 1 }
+                : item
+            );
+            selectedIds.value = [];
+            uni.showToast({ title: "已移动到回收站", icon: "none" });
+          })
+          .catch((err) => {
+            uni.showToast({ title: (err as any)?.message || "删除失败", icon: "none" });
+          });
       }
     },
   });
@@ -237,8 +226,26 @@ const handleDelete = () => {
 
 const handleDownload = () => {
   if (!selectedIds.value.length) return;
-  // TODO: 调用 /api/photo/download 获取签名 URL 后批量 downloadFile
-  uni.showToast({ title: "获取下载链接中（示例）", icon: "none" });
+  downloadPhotos({
+    device_id: deviceId.value,
+    photo_ids: selectedIds.value.join(","),
+  })
+    .then((res) => {
+      if (res.code !== 200) throw new Error(res.message || "获取链接失败");
+      res.data?.links?.forEach((link) => {
+        uni.downloadFile({
+          url: link.download_url,
+          success: () => {},
+          fail: () => {
+            uni.showToast({ title: "下载失败", icon: "none" });
+          },
+        });
+      });
+      uni.showToast({ title: "正在下载", icon: "none" });
+    })
+    .catch((err) => {
+      uni.showToast({ title: (err as any)?.message || "获取链接失败", icon: "none" });
+    });
 };
 
 const refreshList = () => {

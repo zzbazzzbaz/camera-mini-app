@@ -73,11 +73,48 @@ const handleLogin = async () => {
       throw new Error("未获取到登录 code");
     }
 
-    const res = await login({ code: loginRes.code });
+    let userProfile: UniApp.GetUserProfileRes["userInfo"] | null = null;
+    try {
+      userProfile = await new Promise<UniApp.GetUserProfileRes["userInfo"]>((resolve, reject) => {
+        uni.getUserProfile({
+          desc: "用于完善用户资料",
+          success: (res) => resolve(res.userInfo),
+          fail: reject,
+        });
+      });
+    } catch (err) {
+      console.warn("getUserProfile failed, continue login without profile:", err);
+    }
+
+    const res = await login({
+      code: loginRes.code,
+      ...(userProfile
+        ? {
+            nickname: userProfile.nickName,
+            avatar_url: userProfile.avatarUrl,
+          }
+        : {}),
+    });
     if (!res?.data?.token) throw new Error(res?.message || "登录失败");
 
-    uni.showToast({ title: "登录成功", icon: "success" });
-    uni.reLaunch({ url: "/pages/device/list" });
+    // 显示登录成功提示
+    await new Promise<void>((resolve) => {
+      uni.showToast({
+        title: "登录成功",
+        icon: "success",
+        success: () => resolve(),
+        fail: () => resolve(),
+      });
+    });
+
+    // 跳转到设备列表页
+    await new Promise<void>((resolve, reject) => {
+      uni.reLaunch({
+        url: "/pages/device/list",
+        success: () => resolve(),
+        fail: reject,
+      });
+    });
   } catch (error) {
     uni.showToast({ title: (error as any)?.message || "登录失败，请重试", icon: "none" });
   } finally {

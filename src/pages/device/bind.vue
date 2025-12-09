@@ -57,6 +57,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { bindDevice } from "@/api/device";
 
 const serialNumber = ref("");
 const deviceName = ref("");
@@ -87,15 +88,14 @@ const handleBind = async () => {
       device_name: deviceName.value.trim() || undefined,
       is_owner: isOwner.value ? 1 : 0,
     };
-    void payload;
-    // TODO: 调用 /api/device/bind 接口
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    const res = await bindDevice(payload);
+    if (res.code !== 200) throw new Error(res.message || "绑定失败");
     uni.showToast({ title: "绑定成功", icon: "success" });
     setTimeout(() => {
       uni.navigateBack();
     }, 400);
   } catch (error) {
-    uni.showToast({ title: "绑定失败，请重试", icon: "none" });
+    uni.showToast({ title: (error as any)?.message || "绑定失败，请重试", icon: "none" });
   } finally {
     submitting.value = false;
     uni.hideLoading();
