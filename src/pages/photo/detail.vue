@@ -57,8 +57,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
+import { deletePhotos } from "@/api/photo";
 
 const photoId = ref("");
+const deviceId = ref("");
 const deviceName = ref("");
 const photoUrl = ref("/static/logo.png");
 const uploadTime = ref("");
@@ -83,13 +85,34 @@ const sizeText = computed(() => {
 });
 
 const confirmDelete = () => {
+  if (!photoId.value || !deviceId.value) {
+    uni.showToast({ title: "缺少必要信息", icon: "none" });
+    return;
+  }
+
   uni.showModal({
     title: "确认删除",
     content: "将移至回收站，30 天后自动清除",
-    success: (res) => {
-      if (res.confirm) {
-        // TODO: 调用 /api/photo/delete 单张接口
+    success: async (res) => {
+      if (!res.confirm) return;
+      uni.showLoading({ title: "处理中...", mask: true });
+      try {
+        const resp = await deletePhotos({
+          device_id: deviceId.value,
+          photo_ids: [photoId.value],
+        });
+        if (resp.code !== 200) throw new Error(resp.message || "删除失败");
+
         uni.showToast({ title: "已删除到回收站", icon: "none" });
+        // 通知列表刷新后返回
+        uni.$emit("photo-deleted", { device_id: deviceId.value, photo_id: photoId.value });
+        setTimeout(() => {
+          uni.navigateBack();
+        }, 300);
+      } catch (error) {
+        uni.showToast({ title: (error as any)?.message || "删除失败", icon: "none" });
+      } finally {
+        uni.hideLoading();
       }
     },
   });
@@ -102,6 +125,7 @@ const handleDownload = () => {
 
 onLoad((options) => {
   photoId.value = (options?.photo_id as string) || "";
+  deviceId.value = (options?.device_id as string) || "";
   deviceName.value = decodeURIComponent((options?.device_name as string) || "相机设备");
   const urlParam = decodeURIComponent((options?.url as string) || "");
   photoUrl.value = urlParam && urlParam !== "undefined" && urlParam !== "null" ? urlParam : "/static/logo.png";

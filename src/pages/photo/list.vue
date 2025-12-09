@@ -13,18 +13,11 @@
           >
             {{ multiSelect ? "退出多选" : "多选" }}
           </button>
-          <button
-            class="px-3 py-1.5 rounded-full bg-emerald-500 text-xs text-white"
-            @tap="() => setFilter(filter === 'active' ? 'deleted' : 'active')"
-          >
-            {{ filter === "active" ? "回收站" : "返回全部" }}
-          </button>
         </view>
       </view>
 
       <view class="px-4 pb-3 flex items-center gap-2">
         <view :class="chipClass('active')" @tap="setFilter('active')">全部</view>
-        <view :class="chipClass('deleted')" @tap="setFilter('deleted')">回收站</view>
         <view class="ml-auto text-[12px] text-slate-500">照片倒序 · 支持批量删除/下载</view>
       </view>
     </view>
@@ -84,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import { onLoad, onReachBottom, onPullDownRefresh } from "@dcloudio/uni-app";
 import PhotoTile from "@/components/PhotoTile.vue";
 import type { PhotoItem } from "@/types";
@@ -96,23 +89,19 @@ const photos = ref<PhotoItem[]>([]);
 const loading = ref(true);
 const loadingMore = ref(false);
 const hasMore = ref(true);
-const filter = ref<"active" | "deleted">("active");
+const filter = ref<"active" | "deleted">("active"); // 保留状态以便接口兼容，界面只显示“全部”
 const multiSelect = ref(false);
 const selectedIds = ref<string[]>([]);
 const hasWarnedNoDevice = ref(false);
+
+const chipClass = (_key?: "active" | "deleted") =>
+  "px-3 py-1.5 rounded-full text-xs font-medium border bg-emerald-50 text-emerald-700 border-emerald-200";
 
 const filteredPhotos = computed(() =>
   photos.value.filter((item) =>
     filter.value === "deleted" ? item.is_deleted === 1 : item.is_deleted !== 1
   )
 );
-
-const chipClass = (key: "active" | "deleted") =>
-  `px-3 py-1.5 rounded-full text-xs font-medium border ${
-    filter.value === key
-      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-      : "bg-white text-slate-600 border-slate-200"
-  }`;
 
 const page = ref(1);
 const pageSize = ref(20);
@@ -165,8 +154,9 @@ const fetchPhotos = async (reset = true) => {
   }
 };
 
-const setFilter = async (key: "active" | "deleted") => {
-  filter.value = key;
+const setFilter = async (_key: "active" | "deleted") => {
+  // 仅保留“全部”，不切换到回收站
+  filter.value = "active";
   selectedIds.value = [];
   await fetchPhotos(true);
 };
@@ -281,6 +271,11 @@ const loadMore = async () => {
   await fetchPhotos(false);
 };
 
+const handlePhotoDeleted = (payload: { device_id?: string; photo_id?: string }) => {
+  if (payload?.device_id && payload.device_id !== deviceId.value) return;
+  fetchPhotos(true);
+};
+
 onLoad((options) => {
   const paramId = (options?.device_id as string) || "";
   deviceId.value = paramId && paramId !== "undefined" && paramId !== "null" ? paramId : "";
@@ -289,7 +284,12 @@ onLoad((options) => {
 });
 
 onMounted(async () => {
+  uni.$on("photo-deleted", handlePhotoDeleted);
   await fetchPhotos(true);
+});
+
+onBeforeUnmount(() => {
+  uni.$off("photo-deleted", handlePhotoDeleted);
 });
 
 onReachBottom(async () => {
