@@ -165,10 +165,10 @@ const fetchPhotos = async (reset = true) => {
   }
 };
 
-const setFilter = (key: "active" | "deleted") => {
+const setFilter = async (key: "active" | "deleted") => {
   filter.value = key;
   selectedIds.value = [];
-  fetchPhotos(true);
+  await fetchPhotos(true);
 };
 
 const toggleSelectMode = () => {
@@ -272,8 +272,8 @@ const handleDownload = () => {
     });
 };
 
-const refreshList = () => {
-  fetchPhotos(true);
+const refreshList = async () => {
+  await fetchPhotos(true);
 };
 
 const loadMore = async () => {
@@ -288,15 +288,15 @@ onLoad((options) => {
   ensureDevice();
 });
 
-onMounted(() => {
-  fetchPhotos(true);
+onMounted(async () => {
+  await fetchPhotos(true);
 });
 
-onReachBottom(() => {
-  loadMore();
+onReachBottom(async () => {
+  await loadMore();
 });
 
-onPullDownRefresh(() => {
-  fetchPhotos(true);
+onPullDownRefresh(async () => {
+  await fetchPhotos(true);
 });
 </script>

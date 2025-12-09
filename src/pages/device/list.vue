@@ -89,16 +89,16 @@ const handleCardTap = (device: DeviceSummary) => {
   });
 };
 
-onMounted(() => {
+onMounted(async () => {
   if (!ensureAuthed()) return;
-  fetchDevices();
+  await fetchDevices();
 });
 
-onPullDownRefresh(() => {
+onPullDownRefresh(async () => {
   if (!ensureAuthed()) {
     uni.stopPullDownRefresh();
     return;
   }
-  fetchDevices();
+  await fetchDevices();
 });
 </script>
