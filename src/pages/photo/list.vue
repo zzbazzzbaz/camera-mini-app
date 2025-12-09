@@ -185,6 +185,13 @@ const toggleSelect = (id: string) => {
 };
 
 const handleTileTap = (photo: PhotoItem) => {
+  if (!ensureDevice()) return;
+  const targetUrl = photo.original_url || photo.thumbnail_url || "";
+  if (!targetUrl) {
+    uni.showToast({ title: "暂无可预览的图片地址", icon: "none" });
+    return;
+  }
+
   if (multiSelect.value) {
     toggleSelect(photo.photo_id);
     return;
@@ -199,7 +206,7 @@ const handleTileTap = (photo: PhotoItem) => {
     `photo_id=${photo.photo_id}`,
     `device_id=${deviceId.value}`,
     `device_name=${encodeURIComponent(deviceName.value)}`,
-    `url=${encodeURIComponent(photo.original_url || photo.thumbnail_url)}`,
+    `url=${encodeURIComponent(targetUrl)}`,
     `upload_time=${encodeURIComponent(photo.upload_time)}`,
     `width=${photo.width || ""}`,
     `height=${photo.height || ""}`,

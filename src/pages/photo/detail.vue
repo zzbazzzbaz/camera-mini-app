@@ -77,8 +77,9 @@ const resolutionText = computed(() =>
 );
 
 const sizeText = computed(() => {
-  if (!fileSize.value) return "--";
-  return `${(fileSize.value / 1024 / 1024).toFixed(1)} MB`;
+  if (!fileSize.value || fileSize.value <= 0) return "--";
+  const mb = fileSize.value / 1024 / 1024;
+  return `${mb.toFixed(2)} MB`;
 });
 
 const confirmDelete = () => {
@@ -102,11 +103,13 @@ const handleDownload = () => {
 onLoad((options) => {
   photoId.value = (options?.photo_id as string) || "";
   deviceName.value = decodeURIComponent((options?.device_name as string) || "相机设备");
-  photoUrl.value = decodeURIComponent((options?.url as string) || "/static/logo.png");
+  const urlParam = decodeURIComponent((options?.url as string) || "");
+  photoUrl.value = urlParam && urlParam !== "undefined" && urlParam !== "null" ? urlParam : "/static/logo.png";
   uploadTime.value = decodeURIComponent((options?.upload_time as string) || "");
   width.value = options?.width ? Number(options.width) : null;
   height.value = options?.height ? Number(options.height) : null;
   format.value = (options?.format as string) || "";
-  fileSize.value = options?.file_size ? Number(options.file_size) : null;
+  const parsedSize = Number(options?.file_size);
+  fileSize.value = Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : null;
 });
 </script>
