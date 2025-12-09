@@ -52,25 +52,34 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
+import { login } from "@/api/auth";
 
 const loading = ref(false);
-
-const mockLogin = () =>
-  new Promise((resolve) => {
-    setTimeout(resolve, 800);
-  });
 
 const handleLogin = async () => {
   if (loading.value) return;
   loading.value = true;
   uni.showLoading({ title: "登录中...", mask: true });
   try {
-    // TODO: 调用 /api/wechat/login，并缓存 token
-    await mockLogin();
+    const loginRes = await new Promise<UniApp.LoginRes>((resolve, reject) => {
+      uni.login({
+        provider: "weixin",
+        success: resolve,
+        fail: reject,
+      });
+    });
+
+    if (!loginRes.code) {
+      throw new Error("未获取到登录 code");
+    }
+
+    const res = await login({ code: loginRes.code });
+    if (!res?.data?.token) throw new Error(res?.message || "登录失败");
+
     uni.showToast({ title: "登录成功", icon: "success" });
     uni.reLaunch({ url: "/pages/device/list" });
   } catch (error) {
-    uni.showToast({ title: "登录失败，请重试", icon: "none" });
+    uni.showToast({ title: (error as any)?.message || "登录失败，请重试", icon: "none" });
   } finally {
     uni.hideLoading();
     loading.value = false;
